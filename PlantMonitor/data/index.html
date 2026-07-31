@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prototipe Sistem Monitoring Tanaman Cabai Berbasis ESP32</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-title">
+        <h1>PlantMonitor <span class="badge-version">Prototipe</span></h1>
+        <p class="subtitle">Prototipe Sistem Monitoring Tanaman Cabai Berbasis ESP32 dengan Kontrol Aktuator Melalui Web Server Lokal</p>
+      </div>
+      <div class="header-status">
+        <div class="status-badge" id="wifiStatus">
+          <span class="status-dot"></span>
+          <span id="connText">ESP32 Connected</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- STATS CARDS GRID -->
+    <div class="stats-grid">
+      <!-- TEMPERATUR -->
+      <div class="glass stat-card glow-amber">
+        <div class="stat-header">
+          <span class="stat-label text-amber">Temperatur</span>
+          <span class="status-pill pill-amber" id="tempStatus">Normal</span>
+        </div>
+        <div class="stat-value-box">
+          <span class="stat-num" id="valTemp">28.4</span>
+          <span class="stat-unit">°C</span>
+        </div>
+        <div class="stat-footer">
+          <div>Sensor DHT22 - Suhu Ruang</div>
+          <div class="stat-actuator-indicator" id="fanCardIndicator">
+            <span class="dot-off" id="fanDot">●</span> Kipas: <strong id="fanCardState" style="color: var(--text-dim)">OFF</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- KELEMBAPAN UDARA -->
+      <div class="glass stat-card glow-blue">
+        <div class="stat-header">
+          <span class="stat-label text-blue">Kelembapan Udara</span>
+          <span class="status-pill pill-blue">DHT22</span>
+        </div>
+        <div class="stat-value-box">
+          <span class="stat-num" id="valHum">64</span>
+          <span class="stat-unit">%</span>
+        </div>
+        <div class="stat-footer">
+          <div>Sensor Udara Stabil</div>
+          <div class="stat-actuator-indicator">
+            <span style="color: #3b82f6">●</span> Kelembapan: <strong>Normal</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- KELEMBAPAN TANAH -->
+      <div class="glass stat-card glow-green">
+        <div class="stat-header">
+          <span class="stat-label text-green">Kelembapan Tanah</span>
+          <span class="status-pill pill-green" id="soilStatus">Optimal</span>
+        </div>
+        <div class="stat-value-box">
+          <span class="stat-num" id="valSoil">72</span>
+          <span class="stat-unit">%</span>
+        </div>
+        <div class="stat-footer">
+          <div>ADC Pin 34 Sensor Tanah</div>
+          <div class="stat-actuator-indicator" id="pumpCardIndicator">
+            <span class="dot-off" id="pumpDot">●</span> Pompa: <strong id="pumpCardState" style="color: var(--text-dim)">OFF</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATISTIK REALTIME GRAFIK CHART CARD -->
+    <div class="glass chart-card">
+      <div class="chart-top-bar">
+        <div class="chart-main-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          <span>Statistik Real-Time</span>
+        </div>
+        <div class="chart-actions">
+          <button class="btn-live" id="btnLiveToggle">
+            <span class="pause-icon">||</span> LIVE
+          </button>
+          <div class="filter-pill-group">
+            <button class="filter-pill active" data-filter="all">SEMUA</button>
+            <button class="filter-pill" data-filter="temp">SUHU</button>
+            <button class="filter-pill" data-filter="hum">UDARA</button>
+            <button class="filter-pill" data-filter="soil">TANAH</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-metrics-row">
+        <div class="metric-subcard">
+          <span class="metric-sublabel">RATA-RATA SUHU</span>
+          <span class="metric-subval text-amber-val" id="chartAvgTemp">26.5°C</span>
+        </div>
+        <div class="metric-subcard">
+          <span class="metric-sublabel">KELEMBAPAN UDARA</span>
+          <span class="metric-subval text-blue-val" id="chartAvgHum">64.4%</span>
+        </div>
+        <div class="metric-subcard">
+          <span class="metric-sublabel">KELEMBAPAN TANAH</span>
+          <span class="metric-subval text-green-val" id="chartAvgSoil">51%</span>
+        </div>
+      </div>
+
+      <div class="canvas-wrapper">
+        <canvas id="realtimeChart" width="900" height="260"></canvas>
+      </div>
+
+      <div class="chart-bottom-legend">
+        <span class="legend-badge legend-green">
+          <span class="legend-symbol">──●──</span> Kelembapan Tanah (%)
+        </span>
+        <span class="legend-badge legend-blue">
+          <span class="legend-symbol">──●──</span> Kelembapan Udara (%)
+        </span>
+        <span class="legend-badge legend-amber">
+          <span class="legend-symbol">──●──</span> Suhu Udara (°C)
+        </span>
+      </div>
+    </div>
+
+    <!-- KONTROL PERANGKAT MANUAL & OTOMATIS -->
+    <div class="glass control-card">
+      <div class="card-header-bar">
+        <div class="card-title-flex">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+          Kontrol Perangkat Manual
+        </div>
+        <div class="auto-override-flex">
+          <span class="override-label" id="modeLabel">KONTROL OTOMATIS</span>
+          <label class="switch switch-sm">
+            <input type="checkbox" id="toggleAuto" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="device-grid">
+        <div class="device-panel" id="pumpPanel">
+          <div class="panel-header">
+            <div class="panel-info">
+              <div class="device-icon icon-blue">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+              </div>
+              <div>
+                <div class="device-title">Pompa Air</div>
+                <div class="device-badge badge-off" id="pumpBadge">STATUS: OFF</div>
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="togglePump">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="panel-alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Pompa penyiraman otomatis aktif jika kelembapan tanah &lt; 60%.</span>
+          </div>
+        </div>
+
+        <div class="device-panel" id="fanPanel">
+          <div class="panel-header">
+            <div class="panel-info">
+              <div class="device-icon icon-amber">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 9a3 3 0 0 1 3-3h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a3 3 0 0 1-3-3z"/><path d="M12 15a3 3 0 0 1-3 3h-4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h4a3 3 0 0 1 3 3z"/></svg>
+              </div>
+              <div>
+                <div class="device-title">Kipas Sirkulasi</div>
+                <div class="device-badge badge-off" id="fanBadge">STATUS: OFF</div>
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggleFan">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="panel-alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Kipas pendingin otomatis aktif jika temperatur &gt; 28°C.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYSTEM SCHEDULE & INTEGRATION -->
+    <div class="glass control-card">
+      <div class="flex-title-row">
+        <h3 class="card-title">Penjadwalan & Integrasi System</h3>
+        <span id="threshSavedBadge" class="save-toast-badge" style="display:none;">✓ Threshold Tersimpan</span>
+      </div>
+      <div class="schedule-grid">
+        <!-- EDITABLE SOIL THRESHOLD -->
+        <div class="schedule-box interactive-sched">
+          <div class="sched-header">
+            <span class="sched-label">SOIL THRESHOLD (BATAS POMPA)</span>
+            <span class="sched-badge">Siram jika &lt; <span id="soilValDisp">60</span>%</span>
+          </div>
+          <div class="input-inline-group">
+            <input type="number" id="inputSoilThresh" value="60" min="10" max="90" class="sched-input" />
+            <span class="input-unit">%</span>
+            <button type="button" id="btnSaveSoilThresh" class="btn-save-thresh">Set</button>
+          </div>
+        </div>
+
+        <!-- EDITABLE TEMP THRESHOLD -->
+        <div class="schedule-box interactive-sched">
+          <div class="sched-header">
+            <span class="sched-label">TEMP THRESHOLD (BATAS KIPAS)</span>
+            <span class="sched-badge">Kipas jika &gt; <span id="tempValDisp">28.0</span>°C</span>
+          </div>
+          <div class="input-inline-group">
+            <input type="number" id="inputTempThresh" value="28.0" min="20" max="45" step="0.5" class="sched-input" />
+            <span class="input-unit">°C</span>
+            <button type="button" id="btnSaveTempThresh" class="btn-save-thresh">Set</button>
+          </div>
+        </div>
+      </div>
+      <div class="schedule-box full-width">
+        <span class="sched-label">THINGSPEAK INTERVAL</span>
+        <span class="sched-val">20 Detik (Field 1, 2, 3)</span>
+      </div>
+      <div class="last-sync-box">
+        <span class="sched-label">STATUS DATA TELEMETRI</span>
+        <div class="sync-time" id="lastSync">SINKRONISASI AKTIF (2s)</div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <p>&copy; 2026 Eka Prasetiawan • 20122419</p>
+      <p>Sistem Monitoring dan Kendali Berbasis IoT</p>
+      <p>
+        Dikembangkan sebagai Proyek Uji Kompetensi Kualifikasi Level 6
+        Bidang Elektronika Prototipe dan Pemrograman
+      </p>
+      <p>
+        Universitas Gunadarma • Badan Nasional Sertifikasi Profesi (BNSP)
+      </p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
